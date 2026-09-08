@@ -330,36 +330,55 @@ function setupEventListeners() {
   }
 
   // ── Engine Detail Listeners ──
-  document.getElementById("dataset-select").addEventListener("change", async (e) => {
-    await switchDataset(e.target.value);
-  });
+  const dsSelectElem = document.getElementById("dataset-select");
+  if (dsSelectElem) {
+    dsSelectElem.addEventListener("change", async (e) => {
+      await switchDataset(e.target.value);
+    });
+  }
 
-  document.getElementById("engine-select").addEventListener("change", async (e) => {
-    await switchEngine(parseInt(e.target.value, 10));
-  });
+  const engSelectElem = document.getElementById("engine-select");
+  if (engSelectElem) {
+    engSelectElem.addEventListener("change", async (e) => {
+      await switchEngine(parseInt(e.target.value, 10));
+    });
+  }
 
   const slider = document.getElementById("cycle-slider");
-  slider.addEventListener("input", (e) => {
-    pauseSimulation();
-    setCycle(parseInt(e.target.value, 10));
-  });
-
-  document.getElementById("btn-sim-play").addEventListener("click", startSimulation);
-  document.getElementById("btn-sim-pause").addEventListener("click", pauseSimulation);
-  document.getElementById("btn-sim-reset").addEventListener("click", resetSimulation);
-
-  document.getElementById("sim-speed").addEventListener("change", (e) => {
-    state.simSpeed = parseInt(e.target.value, 10);
-    if (state.isPlaying) {
+  if (slider) {
+    slider.addEventListener("input", (e) => {
       pauseSimulation();
-      startSimulation();
-    }
-  });
+      setCycle(parseInt(e.target.value, 10));
+    });
+  }
 
-  document.getElementById("sensor-select").addEventListener("change", (e) => {
-    state.activeSensor = e.target.value;
-    updateSensorTrendChart();
-  });
+  const playBtn = document.getElementById("btn-sim-play");
+  if (playBtn) playBtn.addEventListener("click", startSimulation);
+
+  const pauseBtn = document.getElementById("btn-sim-pause");
+  if (pauseBtn) pauseBtn.addEventListener("click", pauseSimulation);
+
+  const resetBtn = document.getElementById("btn-sim-reset");
+  if (resetBtn) resetBtn.addEventListener("click", resetSimulation);
+
+  const simSpeedElem = document.getElementById("sim-speed");
+  if (simSpeedElem) {
+    simSpeedElem.addEventListener("change", (e) => {
+      state.simSpeed = parseInt(e.target.value, 10);
+      if (state.isPlaying) {
+        pauseSimulation();
+        startSimulation();
+      }
+    });
+  }
+
+  const sensorSelectElem = document.getElementById("sensor-select");
+  if (sensorSelectElem) {
+    sensorSelectElem.addEventListener("change", (e) => {
+      state.activeSensor = e.target.value;
+      updateSensorTrendChart();
+    });
+  }
 
   document.querySelectorAll(".sensor-filter-pills .pill").forEach(pill => {
     pill.addEventListener("click", () => {
@@ -370,35 +389,40 @@ function setupEventListeners() {
     });
   });
 
-  document.getElementById("toggle-ground-truth").addEventListener("change", (e) => {
-    if (rulTrendChart) {
-      rulTrendChart.data.datasets[1].hidden = !e.target.checked;
-      rulTrendChart.update();
-    }
-  });
+  const toggleGtElem = document.getElementById("toggle-ground-truth");
+  if (toggleGtElem) {
+    toggleGtElem.addEventListener("change", (e) => {
+      if (rulTrendChart && rulTrendChart.data && rulTrendChart.data.datasets[1]) {
+        rulTrendChart.data.datasets[1].hidden = !e.target.checked;
+        rulTrendChart.update();
+      }
+    });
+  }
 
   // CSV Upload
   const fileInput = document.getElementById("csv-file-input");
   const dropzone = document.getElementById("upload-dropzone");
   const submitUploadBtn = document.getElementById("btn-submit-upload");
 
-  dropzone.addEventListener("click", () => fileInput.click());
-  dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("hover");
-  });
-  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("hover"));
-  dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("hover");
-    if (e.dataTransfer.files.length) {
-      fileInput.files = e.dataTransfer.files;
-      handleFileSelected();
-    }
-  });
+  if (dropzone && fileInput) {
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("hover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("hover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("hover");
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelected();
+      }
+    });
+  }
 
-  fileInput.addEventListener("change", handleFileSelected);
-  submitUploadBtn.addEventListener("click", submitCsvUpload);
+  if (fileInput) fileInput.addEventListener("change", handleFileSelected);
+  if (submitUploadBtn) submitUploadBtn.addEventListener("click", submitCsvUpload);
 
   // Setup Ingested Fleet Table Event Listeners
   setupUploadEventListeners();
@@ -896,6 +920,7 @@ async function switchEngine(engineId) {
 
 function populateSensorSelector() {
   const sensorSelect = document.getElementById("sensor-select");
+  if (!sensorSelect) return;
   sensorSelect.innerHTML = "";
   for (let i = 1; i <= 21; i++) {
     const sId = `s${i}`;
