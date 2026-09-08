@@ -39,6 +39,20 @@ app.add_middleware(
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
 
 
+@app.on_event("startup")
+def startup_prewarm():
+    """Pre-warm the PyTorch models and fleet cache so the web dashboard loads instantaneously."""
+    try:
+        engine = get_engine()
+        print("[Startup] Pre-warming fleet caches for instant dashboard response...")
+        for fd_id in range(1, 5):
+            engine.predict_fleet_summary(fd_id, dataset_type='test')
+        print("[Startup] All fleet caches warmed up successfully! 🚀")
+    except Exception as e:
+        print(f"[Startup] Pre-warm notice: {e}")
+
+
+
 class PredictRequest(BaseModel):
     dataset: str  # "FD001" or "1"
     engine_id: int
