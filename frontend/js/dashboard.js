@@ -939,7 +939,8 @@ async function fetchAndDisplayPrediction(cycle) {
     healthBadge.innerText = "INSUFFICIENT DATA";
     document.getElementById("substat-est-failure").innerText = "--";
     document.getElementById("substat-uncertainty").innerText = "--";
-    document.getElementById("substat-ci").innerText = "--";
+    const ciEl = document.getElementById("substat-ci");
+    if (ciEl) ciEl.innerText = "--";
     document.getElementById("ground-truth-strip").classList.add("hidden");
     document.getElementById("detail-status-stat").innerText = "INSUFFICIENT DATA";
     document.getElementById("detail-rul-stat").innerText = "--";
@@ -980,7 +981,8 @@ async function fetchAndDisplayPrediction(cycle) {
   heroRul.innerText = roundedRul;
   document.getElementById("substat-est-failure").innerText = Math.round(pred.current_cycle + pred.predicted_rul);
   document.getElementById("substat-uncertainty").innerText = formatUncertainty(pred.uncertainty);
-  document.getElementById("substat-ci").innerText = formatCI(pred.confidence_interval);
+  const ciElFilled = document.getElementById("substat-ci");
+  if (ciElFilled) ciElFilled.innerText = formatCI(pred.confidence_interval);
 
   // Health Status Badges
   healthBadge.className = `health-badge ${pred.health_status.toLowerCase()}`;
@@ -1179,7 +1181,7 @@ function initCharts() {
     }
   });
 
-  // 2. Sensor Trend Chart (if canvas present)
+  // 2. Sensor Trend Chart (if present)
   const sensorCanvas = document.getElementById("sensorTrendChart");
   if (sensorCanvas) {
     const ctxSensor = sensorCanvas.getContext("2d");
@@ -1268,8 +1270,8 @@ function updateSensorTrendChart() {
 
   const curVal = state.telemetryByCycle[state.currentCycle]?.[sId];
   const descEl = document.getElementById("sensor-desc-label");
-  const valEl = document.getElementById("sensor-current-val");
   if (descEl) descEl.innerText = `${sId.toUpperCase()}: ${meta.name} (${meta.unit})`;
+  const valEl = document.getElementById("sensor-current-val");
   if (valEl) valEl.innerText = `Current: ${curVal !== undefined ? curVal.toFixed(2) : '--'}`;
 }
 
