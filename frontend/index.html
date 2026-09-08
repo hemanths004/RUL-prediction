@@ -756,31 +756,6 @@
           </div>
         </div>
 
-        <div class="methodology-card">
-          <h3>Architectural Pipeline Highlights</h3>
-          <div class="methodology-steps">
-            <div class="step-card">
-              <span class="step-num">01</span>
-              <h4>Condition Clustering</h4>
-              <p>KMeans unsupervised clustering (6 conditions for FD002 & FD004) enables condition-aware min-max normalization, removing operating regime variance.</p>
-            </div>
-            <div class="step-card">
-              <span class="step-num">02</span>
-              <h4>Dual-Stream Feature Extractor</h4>
-              <p>Multi-scale Conv1D (kernels 3, 5, 7) + 2-layer BiLSTM (hidden 128) + 3D Attention fused with 6 handcrafted statistical features (mean, slope, std, % dev, cusum, late slope).</p>
-            </div>
-            <div class="step-card">
-              <span class="step-num">03</span>
-              <h4>4-Expert MoE Output Head</h4>
-              <p>Specialized expert sub-networks combined via learned soft-gating with entropy regularisation and variance penalty to prevent expert collapse.</p>
-            </div>
-            <div class="step-card">
-              <span class="step-num">04</span>
-              <h4>MC Dropout Uncertainty</h4>
-              <p>50 stochastic forward passes at inference yield empirical predictive distributions, providing ±1σ uncertainty bounds and 90% confidence intervals.</p>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 
