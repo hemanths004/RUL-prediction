@@ -1363,7 +1363,7 @@ async function loadBenchmarks() {
         </div>
         <div class="bench-metric-row highlight">
           <span>Root Mean Squared Error (RMSE):</span>
-          <span class="metric-val">${m.rmse} cycles</span>
+          <span class="metric-val">${m.rmse}</span>
         </div>
         <div class="bench-metric-row">
           <span>C-MAPSS Score (Asymmetric):</span>
@@ -1371,7 +1371,7 @@ async function loadBenchmarks() {
         </div>
         <div class="bench-metric-row">
           <span>Mean Absolute Error (MAE):</span>
-          <span class="metric-val">${m.mae} cycles</span>
+          <span class="metric-val">${m.mae}</span>
         </div>
         <div class="bench-metric-row">
           <span>Avg Uncertainty (±1σ):</span>
