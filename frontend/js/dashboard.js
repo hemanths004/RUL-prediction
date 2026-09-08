@@ -1454,7 +1454,6 @@ async function loadBenchmarks() {
           <td><span style="font-family: var(--font-mono); color: var(--amber);">${reg.throttle}</span></td>
           <td>${reg.phase}</td>
           <td><code style="color: #93c5fd;">${reg.datasets}</code></td>
-          <td><span class="op-tag-cluster">${reg.clustering}</span></td>
         `;
         tbody.appendChild(row);
       });
