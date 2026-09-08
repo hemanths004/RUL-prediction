@@ -49,51 +49,43 @@ Traditional threshold-based maintenance strategies lead to either **premature re
 ## 📁 Project Structure
 
 ```
-turbofan-rul-prediction/
+RUL-prediction/
 │
-├── main.py                   # Entry point — orchestrates all pipeline steps
-├── config.py                 # Hyperparameters, constants, device setup
+├── main.py                   # Entry point — orchestrates model training pipeline
+├── config.py                 # Hyperparameters, sensor configs, device setup
 │
-├── data_loading.py           # Loads FD001–FD004, selects informative sensors
-├── data_processing.py        # RUL computation, condition-based normalisation
-├── dataset.py                # PyTorch Dataset (sliding window + HC features)
+├── backend/                  # Real-time FastAPI backend & inference engine
+│   ├── server.py             # FastAPI REST API & telemetry ingestion routes
+│   ├── inference_engine.py   # MC Dropout inference engine & uncertainty estimator
+│   └── scaler_manager.py     # Condition scaler loader & manager
 │
-├── model.py                  # Neural network: CNN-BiLSTM-3DAttn + MoE
-├── train.py                  # Training loop, scheduler, early stopping
-├── evaluate.py               # MC Dropout evaluation, expert utilisation check
-├── metrics.py                # RMSE evaluation + NASA asymmetric score function
+├── frontend/                 # Real-time industrial web dashboard
+│   ├── index.html            # Fleet health monitoring & sensor analytics UI
+│   ├── css/style.css         # Glassmorphism dark theme styling
+│   └── js/dashboard.js       # Live charts, telemetry parser, & API client
 │
-├── visualize.py              # Plots: training curves, RUL predictions + CI bands
-├── summary.py                # Final metrics summary table
-├── save_models.py            # Saves trained model weights (.pt files)
-├── save_rul.py               # Exports RUL predictions to text files
+├── model_FD001–FD004.pt      # Pretrained PyTorch model weights
+├── scalers/all_scalers.pkl   # Condition-aware KMeans & MinMax scalers
+├── sample_data/              # Sample CSV datasets for dashboard uploads
 │
-├── about_data.py             # Dataset overview and statistics
-├── Missingvalueanalysis.py   # Missing value audit
-├── duplicatecheck.py         # Duplicate row detection
-├── EDA.py                    # Full exploratory data analysis with plots
+├── model.py                  # Neural network: Multi-Scale CNN + BiLSTM + 3DAttn + MoE
+├── dataset.py                # PyTorch Dataset (sliding window + 6 HC features)
+├── data_processing.py        # Piecewise RUL & KMeans condition normalization
+├── data_loading.py           # Loads FD001–FD004 raw data & selects informative sensors
+├── train.py                  # Training loop, linear warmup + cosine scheduler
+├── evaluate.py               # MC Dropout evaluation (T=50 stochastic passes)
+├── metrics.py                # RMSE and NASA asymmetric score functions
+├── visualize.py              # Training curve & uncertainty band visualizers
 │
-├── requirements.txt          # Python dependencies
-├── test_gpu.py               # GPU availability diagnostics
-├── .gitignore                # Git ignore rules
+├── dashboard/                # Plotly/Dash analytics dashboard
+│   ├── app.py                # Dash entry point
+│   ├── components.py         # Visual components & charts
+│   └── data_loader.py        # Results loader
 │
-├── dashboard/                # Interactive Dash/Plotly results dashboard
-│   ├── __init__.py           # Package marker
-│   ├── app.py                # Main Dash application entry point
-│   ├── components.py         # Plotly chart & UI component builders
-│   ├── data_loader.py        # Loads cached results for the dashboard
-│   ├── theme.py              # Dashboard colour palette & style constants
-│   └── assets/               # Static assets served by Dash
-│       ├── eda_fd001–fd004.png           # EDA distribution plots
-│       ├── eda_degradation_fd001–fd004.png  # Sensor degradation curves
-│       └── rul_results.png               # RUL prediction results plot
-│
-└── data/                     # C-MAPSS raw data files
-    ├── train_FD001–FD004.txt             # Training data per dataset
-    ├── test_FD001–FD004.txt              # Test data per dataset
-    ├── RUL_FD001–FD004.txt               # Ground truth RUL values
-    ├── readme.txt                        # Dataset documentation
-    └── Damage Propagation Modeling.pdf   # NASA reference paper
+└── data/                     # NASA C-MAPSS raw benchmark files
+    ├── train_FD001–FD004.txt
+    ├── test_FD001–FD004.txt
+    └── RUL_FD001–FD004.txt
 ```
 
 ---
@@ -103,8 +95,8 @@ turbofan-rul-prediction/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Srikar62/turbofan-rul-prediction.git
-cd turbofan-rul-prediction
+git clone https://github.com/hemanths004/RUL-prediction.git
+cd RUL-prediction
 ```
 
 ### 2. Create a Virtual Environment
@@ -186,6 +178,26 @@ The pipeline runs on CPU automatically if no GPU is detected. However, training 
 | `eda_fd00X.png` | EDA distribution plots |
 | `eda_degradation_fd00X.png` | Sensor degradation curves |
 | `rul_results.png` | RUL prediction vs ground truth with CI |
+---
+
+## 🌐 Real-Time Monitoring Web App & REST API
+
+The project features a **FastAPI backend** paired with an aerospace-grade **real-time industrial web dashboard**:
+
+### Launch the Web App
+```bash
+python -m uvicorn backend.server:app --host 0.0.0.0 --port 8000
+```
+- **Web Dashboard:** [http://localhost:8000](http://localhost:8000)
+- **Interactive OpenAPI / Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### Web App Capabilities
+- **Fleet-wide Health Telemetry:** Live health status indicators (`HEALTHY`, `WARNING`, `CRITICAL`)
+- **Interactive Degradation Curves:** Multi-sensor time series tracking with zoom & pan
+- **Uncertainty Quantification:** Visual 90% confidence bands (5th–95th percentile) via MC Dropout
+- **Telemetry CSV File Upload:** Ingest custom sensor telemetry and receive instantaneous batch predictions
+- **RESTful Endpoints:** `/api/predict`, `/api/datasets`, `/api/engine/{fd_id}/{engine_id}`, and `/api/upload`
+
 ---
 
 ## 📊 Interactive Dashboard
