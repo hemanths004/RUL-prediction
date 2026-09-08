@@ -35,6 +35,8 @@ def select_sensors_multi(df, sensors, n_clusters, threshold=0.01):
     df = df.copy()
     df['condition'] = KMeans(n_clusters=n_clusters, random_state=42, n_init=10).fit_predict(op_norm)
     df_norm = df.copy()
+    for s in sensors:
+        df_norm[s] = df_norm[s].astype(np.float32)
     for cond in range(n_clusters):
         mask = df['condition'] == cond
         for s in sensors:

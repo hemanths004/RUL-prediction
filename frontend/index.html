@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turbofan Engine Health & RUL Monitoring System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="icon" type="image/png" href="/static/img/turbofan_logo.png" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-icon">
+        <img src="/static/img/turbofan_logo.png" alt="Turbofan Logo" class="brand-logo-img" />
+      </div>
+      <div>
+        <h1 class="brand-title">TURBOFAN ENGINE RUL MONITORING</h1>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs: Fleet Overview is Primary Default -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="tab-fleet" id="btn-tab-fleet">Fleet Overview</button>
+      <button class="nav-tab" data-tab="tab-monitor" id="btn-tab-monitor">Live Engine Monitor</button>
+      <button class="nav-tab" data-tab="tab-upload" id="btn-tab-upload">Upload Engine Data</button>
+      <button class="nav-tab" data-tab="tab-benchmarks" id="btn-tab-benchmarks">Model Benchmarks</button>
+    </nav>
+
+    <!-- Global Connection / Model Status -->
+    <div class="header-status">
+      <span class="status-indicator live"></span>
+      <span id="model-status-text">Fleet Active: FD001 Fleet</span>
+      <span class="device-tag" id="device-tag">GPU / MPS</span>
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="app-container">
+
+    <!-- TAB 1: FLEET OVERVIEW (PRIMARY OPERATIONAL VIEW) -->
+    <section id="tab-fleet" class="tab-content active">
+
+      <!-- Fleet Control & Assessment Bar -->
+      <div class="card control-bar" style="margin-bottom: 18px;">
+        <div class="selector-group">
+          <div class="control-item">
+            <label for="fleet-dataset-select">Fleet Dataset Filter</label>
+            <select id="fleet-dataset-select" class="custom-select">
+              <option value="FD001" selected>FD001 (1 Cond, 1 Fault • 100 Engines)</option>
+              <option value="FD002">FD002 (6 Cond, 1 Fault • 259 Engines)</option>
+              <option value="FD003">FD003 (1 Cond, 2 Faults • 100 Engines)</option>
+              <option value="FD004">FD004 (6 Cond, 2 Faults • 248 Engines)</option>
+              <option value="all">All Datasets (FD001–FD004 • 707 Turbofans)</option>
+            </select>
+          </div>
+
+          <div class="control-item" style="display: flex; align-items: center; gap: 10px;">
+            <div>
+              <label for="fleet-auto-refresh">Real-time Simulation</label>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <label class="toggle-wrap" style="font-size: 12px;">
+                  <input type="checkbox" id="fleet-auto-refresh" />
+                  <span>Auto Refresh</span>
+                </label>
+                <select id="fleet-refresh-interval" class="custom-select speed-select" style="padding: 4px 8px; font-size: 11px;">
+                  <option value="15000">15 sec</option>
+                  <option value="30000" selected>30 sec</option>
+                  <option value="60000">60 sec</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sim-controls">
+          <button id="btn-refresh-fleet" class="btn btn-primary" title="Re-evaluate entire fleet with PyTorch model">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            <span>Refresh Fleet Assessment</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fleet Health Summary Cards (5 Interactive Stat Boxes) -->
+      <div class="fleet-stats-summary" id="fleet-stats-summary">
+        <div class="fleet-stat-box total clickable-stat" id="stat-card-total" data-filter="all" title="Click to view all engines in table">
+          <span class="val" id="fleet-total-count">--</span>
+          <span class="lbl">Total Engines</span>
+          <span class="stat-click-hint">Show All &rarr;</span>
+        </div>
+        <div class="fleet-stat-box critical clickable-stat" id="stat-card-critical" data-filter="critical" title="Click to filter table to all critical engines">
+          <span class="val" id="fleet-critical-count">--</span>
+          <span class="lbl">Critical (Action Needed)</span>
+          <span class="stat-click-hint">Show Critical &rarr;</span>
+        </div>
+        <div class="fleet-stat-box warning clickable-stat" id="stat-card-warning" data-filter="warning" title="Click to filter table to all warning engines">
+          <span class="val" id="fleet-warning-count">--</span>
+          <span class="lbl">Warning (Advisory)</span>
+          <span class="stat-click-hint">Show Warnings &rarr;</span>
+        </div>
+        <div class="fleet-stat-box healthy clickable-stat" id="stat-card-healthy" data-filter="healthy" title="Click to filter table to all healthy engines">
+          <span class="val" id="fleet-healthy-count">--</span>
+          <span class="lbl">Healthy (Nominal)</span>
+          <span class="stat-click-hint">Show Healthy &rarr;</span>
+        </div>
+        <div class="fleet-stat-box high-uncert clickable-stat" id="stat-card-uncert" data-filter="high_uncert" title="Click to filter table to high uncertainty engines">
+          <span class="val" id="fleet-uncertainty-count">--</span>
+          <span class="lbl">High Uncertainty (±1σ ≥ 8c)</span>
+          <span class="stat-click-hint">Show Uncertain &rarr;</span>
+        </div>
+      </div>
+
+      <!-- Attention Required Section (Top 3-5 Critical Engines) -->
+      <div class="attention-section" id="attention-section">
+        <div class="attention-header">
+          <div class="attention-heading">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.45L20.2 19H3.8L12 5.45zM11 10h2v4h-2zm0 6h2v2h-2z"/></svg>
+            <span>ATTENTION REQUIRED &bull; HIGHEST RISK ENGINES</span>
+          </div>
+          <span class="attention-heading-badge" id="attention-badge">Immediate Action Needed</span>
+        </div>
+        <div class="attention-grid" id="attention-cards-container">
+          <!-- Dynamically populated with top 3-5 critical engine cards -->
+          <div class="attention-card" style="opacity: 0.6;">
+            <div style="font-size: 12px; color: var(--text-muted);">Evaluating fleet urgency ranking...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Operational Fleet Health Table -->
+      <div class="card fleet-queue-card">
+        <div class="card-header-flex" style="margin-bottom: 8px;">
+          <div>
+            <div class="queue-title-row">
+              <span class="card-tag">OPERATIONAL FLEET TABLE</span>
+              <span class="queue-badge" id="fleet-active-badge">FD001 Fleet</span>
+              <span class="queue-counter" id="fleet-table-counter">Loading fleet predictions...</span>
+            </div>
+            <h2 class="section-heading" style="margin-top: 6px; font-size: 16px;">
+              Fleet Engine Health & Urgency Ranking (Critical Engines First)
+            </h2>
+            <p class="chart-subtitle">
+              All engines evaluated via live PyTorch model inference and sorted by operational risk (lowest RUL first). Click any row to open full live telemetry and diagnostics.
+            </p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Controls Row -->
+        <div class="table-filter-bar">
+          <div class="filter-group">
+            <div class="search-input-wrap">
+              <input type="text" id="fleet-search-input" placeholder="Search Engine ID..." class="custom-input" style="width: 170px;" />
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Health:</span>
+              <div class="queue-filter-pills" id="health-filter-pills">
+                <button class="pill active" data-filter-type="health" data-filter-val="all">All</button>
+                <button class="pill pill-crit" data-filter-type="health" data-filter-val="critical">Critical</button>
+                <button class="pill pill-warn" data-filter-type="health" data-filter-val="warning">Warning</button>
+                <button class="pill pill-ok" data-filter-type="health" data-filter-val="healthy">Healthy</button>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Priority:</span>
+              <div class="queue-filter-pills" id="prio-filter-pills">
+                <button class="pill active" data-filter-type="priority" data-filter-val="all">All</button>
+                <button class="pill pill-crit" data-filter-type="priority" data-filter-val="high">High</button>
+                <button class="pill pill-warn" data-filter-type="priority" data-filter-val="medium">Med</button>
+                <button class="pill pill-ok" data-filter-type="priority" data-filter-val="low">Low</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-item">
+              <label for="fleet-alert-filter" class="filter-label">Alert:</label>
+              <select id="fleet-alert-filter" class="custom-select" style="padding: 4px 8px; font-size: 11px;">
+                <option value="all">All Alerts</option>
+                <option value="LOW_RUL">Low RUL</option>
+                <option value="HIGH_UNCERTAINTY">High Uncertainty</option>
+                <option value="NOMINAL">Nominal / None</option>
+              </select>
+            </div>
+
+            <div class="filter-item">
+              <label for="fleet-sort-select" class="filter-label">Sort By:</label>
+              <select id="fleet-sort-select" class="custom-select" style="padding: 4px 8px; font-size: 11px;">
+                <option value="critical_first" selected>Priority / Risk → RUL Ascending (Most Critical First)</option>
+                <option value="rul_asc">Predicted RUL (Lowest First)</option>
+                <option value="rul_desc">Predicted RUL (Highest First)</option>
+                <option value="engine_asc">Engine ID (Ascending)</option>
+                <option value="dataset_asc">Dataset (FD001–FD004)</option>
+                <option value="uncertainty_desc">Uncertainty (Highest First)</option>
+                <option value="cycle_desc">Current Cycle (Highest First)</option>
+                <option value="health_status">Health Status (Critical → Warning → Healthy)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full Table -->
+        <div class="fleet-queue-table-wrap" style="max-height: 520px;">
+          <table class="sensor-table queue-table" id="fleet-table">
+            <thead>
+              <tr>
+                <th style="width: 70px;">Rank</th>
+                <th>Engine ID</th>
+                <th>Dataset</th>
+                <th>Current Cycle</th>
+                <th>Predicted RUL</th>
+                <th>Uncertainty (±1σ)</th>
+                <th>Health Status</th>
+                <th>Risk / Priority</th>
+                <th>Alert Status</th>
+                <th>Recommended Action</th>
+                <th style="text-align: right;">Inspect</th>
+              </tr>
+            </thead>
+            <tbody id="fleet-tbody">
+              <tr>
+                <td colspan="11" class="text-center" style="padding: 30px; color: var(--text-muted);">
+                  <span class="status-indicator live" style="margin-right: 8px;"></span> Evaluating fleet models through PyTorch pipeline...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-wrap">
+          <div id="pagination-info">Showing 1–25 of -- engines</div>
+          <div class="pagination-controls">
+            <label for="page-size-select" style="font-size: 11px; color: var(--text-dim); margin-right: 4px;">Rows per page:</label>
+            <select id="page-size-select" class="custom-select" style="padding: 2px 6px; font-size: 11px; margin-right: 12px;">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="all">All</option>
+            </select>
+            <button id="btn-page-prev" class="page-btn">&larr; Previous</button>
+            <span id="page-numbers-container" style="display: inline-flex; gap: 4px;"></span>
+            <button id="btn-page-next" class="page-btn">Next &rarr;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: LIVE ENGINE MONITOR (DETAILED ENGINE VIEW) -->
+    <section id="tab-monitor" class="tab-content">
+
+      <!-- Back Button & Dedicated Detail Header Strip -->
+      <div class="detail-header-strip" id="detail-header-strip">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <button class="back-btn" id="btn-back-to-fleet" title="Return to Fleet Overview">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <span>Back to Fleet Overview</span>
+          </button>
+          <div>
+            <span class="card-tag" style="color: var(--cyan);">DEEP-DIVE TELEMETRY & INFERENCE</span>
+            <h2 style="font-size: 17px; font-weight: 800; color: #fff; margin-top: 2px;">
+              <span id="detail-engine-title">ENGINE 81</span> &bull; <span id="detail-dataset-title" style="color: var(--cyan);">FD001</span>
+            </h2>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="banner-chip">Current Cycle: <strong id="detail-cycle-stat">--</strong></div>
+          <div class="banner-chip">Health: <strong id="detail-status-stat">--</strong></div>
+          <div class="banner-chip">Predicted RUL: <strong id="detail-rul-stat" class="highlight-cyan">-- c</strong></div>
+          <div class="banner-chip" id="detail-rank-chip" style="font-family: var(--font-mono); color: var(--amber);">Rank #-- in Fleet</div>
+        </div>
+      </div>
+
+      <!-- Engine Selector & Real-Time Simulation Control Bar -->
+      <div class="card control-bar">
+        <div class="selector-group">
+          <div class="control-item">
+            <label for="dataset-select">Dataset Model</label>
+            <select id="dataset-select" class="custom-select">
+              <option value="FD001">FD001 (1 Cond, 1 Fault, W=30)</option>
+              <option value="FD002">FD002 (6 Cond, 1 Fault, W=60)</option>
+              <option value="FD003">FD003 (1 Cond, 2 Faults, W=30)</option>
+              <option value="FD004">FD004 (6 Cond, 2 Faults, W=60)</option>
+            </select>
+          </div>
+
+          <div class="control-item">
+            <label for="engine-select">Engine Unit</label>
+            <select id="engine-select" class="custom-select">
+              <option value="1">Engine 1</option>
+            </select>
+          </div>
+
+          <div class="control-item cycle-slider-item">
+            <div class="slider-header">
+              <label for="cycle-slider">Operating Cycle</label>
+              <span class="cycle-readout">Cycle <strong id="current-cycle-display">31</strong> / <span id="max-cycle-display">31</span></span>
+            </div>
+            <input type="range" id="cycle-slider" min="1" max="31" value="31" class="slider" />
+          </div>
+        </div>
+
+        <!-- Real-Time Simulation Playback Controls -->
+        <div class="sim-controls">
+          <button id="btn-sim-play" class="btn btn-primary" title="Start real-time simulation">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Start Monitoring</span>
+          </button>
+          <button id="btn-sim-pause" class="btn btn-secondary" title="Pause simulation" disabled>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            <span>Pause</span>
+          </button>
+          <button id="btn-sim-reset" class="btn btn-outline" title="Reset to initial cycle">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+            <span>Reset</span>
+          </button>
+          <div class="speed-select-wrap">
+            <label for="sim-speed">Speed:</label>
+            <select id="sim-speed" class="custom-select speed-select">
+              <option value="1000">1x (1s)</option>
+              <option value="500" selected>2x (0.5s)</option>
+              <option value="200">5x (0.2s)</option>
+              <option value="80">10x (80ms)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operating Conditions Strip -->
+      <div class="card op-condition-bar">
+        <div class="op-card-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          OPERATING CONDITIONS & CLUSTERING
+        </div>
+        <div class="op-metrics-grid">
+          <div class="op-metric">
+            <span class="op-metric-label">Altitude / Setting 1</span>
+            <span class="op-metric-value" id="op-setting-1">0.000</span>
+          </div>
+          <div class="op-metric">
+            <span class="op-metric-label">Mach Number / Setting 2</span>
+            <span class="op-metric-value" id="op-setting-2">0.000</span>
+          </div>
+          <div class="op-metric">
+            <span class="op-metric-label">Throttle Resolver / Setting 3</span>
+            <span class="op-metric-value" id="op-setting-3">100.0</span>
+          </div>
+          <div class="op-metric highlight">
+            <span class="op-metric-label">Detected Regime Cluster</span>
+            <span class="op-metric-value badge-cluster" id="op-cluster-id">Cluster #0</span>
+          </div>
+          <div class="op-metric">
+            <span class="op-metric-label">Window Status</span>
+            <span class="op-metric-value" id="window-status-label">Valid (W=30)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Metrics & Prediction Hero Grid -->
+      <div class="grid-layout top-grid">
+
+        <!-- Central RUL Prediction Card -->
+        <div class="card hero-rul-card">
+          <div class="card-header-flex">
+            <span class="card-tag">MODEL INFERENCE OUTPUT</span>
+            <span class="health-badge healthy" id="health-badge">HEALTHY</span>
+          </div>
+
+          <h2 class="hero-card-title">PREDICTED REMAINING USEFUL LIFE</h2>
+
+          <div class="hero-rul-display">
+            <span class="hero-rul-number" id="hero-rul-value">108</span>
+            <span class="hero-rul-unit">CYCLES</span>
+          </div>
+
+          <div class="hero-substats-grid">
+            <div class="hero-substat">
+              <span class="substat-label">Current Cycle</span>
+              <span class="substat-val" id="substat-cur-cycle">31</span>
+            </div>
+            <div class="hero-substat">
+              <span class="substat-label">Estimated Failure Cycle</span>
+              <span class="substat-val" id="substat-est-failure">139</span>
+            </div>
+            <div class="hero-substat">
+              <span class="substat-label">MC Uncertainty (±1σ)</span>
+              <span class="substat-val highlight-cyan" id="substat-uncertainty">±3 cycles</span>
+            </div>
+            <div class="hero-substat">
+              <span class="substat-label">90% Confidence Interval</span>
+              <span class="substat-val highlight-blue" id="substat-ci">[104 – 113]</span>
+            </div>
+          </div>
+
+          <!-- Ground Truth Validation Notice -->
+          <div class="ground-truth-strip" id="ground-truth-strip">
+            <div class="gt-info">
+              <span class="gt-tag">DATASET EVALUATION BENCHMARK</span>
+              <span>Ground Truth RUL: <strong id="gt-rul-val">112</strong> cycles &bull; Absolute Error: <strong id="gt-err-val">4</strong> cycles</span>
+            </div>
+          </div>
+
+          <div id="insufficient-history-alert" class="insufficient-alert hidden">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span id="insufficient-msg">Insufficient history for RUL prediction. Minimum 30 cycles required.</span>
+          </div>
+        </div>
+
+        <!-- Maintenance Decision Support & Active Alerts Card -->
+        <div class="card decision-alerts-card">
+          <div class="card-section">
+            <div class="card-header-flex">
+              <span class="card-tag">DECISION SUPPORT</span>
+              <span class="priority-badge low" id="priority-badge">LOW PRIORITY</span>
+            </div>
+            <h3 class="section-heading">Maintenance Recommendation</h3>
+            <div class="maintenance-box">
+              <div class="rec-title" id="rec-action-title">Normal Operating Parameters</div>
+              <p class="rec-desc" id="rec-action-desc">Engine is operating within optimal health tolerances. Continue standard operational schedule.</p>
+              <div class="rec-meta">
+                <span>Recommended Window: <strong id="rec-window">Next routine check (~80 cycles)</strong></span>
+              </div>
+              <p class="rec-disclaimer">* Whole-engine RUL decision support. Component-level prognosis requires tear-down inspection.</p>
+            </div>
+          </div>
+
+          <div class="card-section alerts-section">
+            <div class="card-header-flex">
+              <span class="card-tag">SYSTEM ALERTS</span>
+              <span class="alert-count-badge" id="alert-count-badge">0 Alerts</span>
+            </div>
+            <div class="alerts-container" id="alerts-container">
+              <div class="alert-item ok">
+                <span class="alert-dot green"></span>
+                <span class="alert-text">All engine telemetry nominal. No threshold violations.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row: RUL Trend & Interactive Sensor Trend -->
+      <div class="grid-layout charts-grid">
+
+        <!-- Predicted RUL Degradation Curve -->
+        <div class="card chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Predicted RUL Over Operating Cycles</h3>
+              <p class="chart-subtitle">Real-time PyTorch model predictions across engine history with uncertainty envelope</p>
+            </div>
+            <div class="chart-controls">
+              <label class="toggle-wrap">
+                <input type="checkbox" id="toggle-ground-truth" checked />
+                <span>Show Ground Truth</span>
+              </label>
+            </div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="rulTrendChart"></canvas>
+          </div>
+          <div class="chart-legend-custom">
+            <span class="legend-item"><span class="legend-line cyan"></span> Predicted RUL</span>
+            <span class="legend-item"><span class="legend-line purple"></span> Ground Truth RUL</span>
+            <span class="legend-item"><span class="legend-line amber-dashed"></span> Warning Threshold (55c)</span>
+            <span class="legend-item"><span class="legend-line red-dashed"></span> Critical Threshold (25c)</span>
+          </div>
+        </div>
+
+        <!-- Sensor Trend Graph -->
+        <div class="card chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Engine Sensor Trend History</h3>
+              <p class="chart-subtitle">Raw physical sensor readings over engine operating cycles</p>
+            </div>
+            <div class="sensor-selector-wrap">
+              <label for="sensor-select">Sensor:</label>
+              <select id="sensor-select" class="custom-select sensor-select">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="sensorTrendChart"></canvas>
+          </div>
+          <div class="sensor-chart-meta">
+            <span id="sensor-desc-label">Sensor 2: Total Temperature at LPC Outlet (°R)</span>
+            <span id="sensor-current-val">Current: 642.15</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Telemetry Sensor Table / Grid -->
+      <div class="card sensor-matrix-card">
+        <div class="card-header-flex">
+          <div>
+            <h3 class="chart-title">Engine Sensor Telemetry Matrix (Current Cycle)</h3>
+            <p class="chart-subtitle">21 C-MAPSS engine sensors with degradation status and model feature inclusion</p>
+          </div>
+          <div class="sensor-filter-pills">
+            <button class="pill active" data-filter="all">All (21)</button>
+            <button class="pill" data-filter="selected">Model Selected</button>
+            <button class="pill" data-filter="constant">Constant / Ignored</button>
+          </div>
+        </div>
+        <div class="sensor-table-wrap">
+          <table class="sensor-table" id="sensor-matrix-table">
+            <thead>
+              <tr>
+                <th>Sensor ID</th>
+                <th>Physical Description</th>
+                <th>Units</th>
+                <th>Current Value</th>
+                <th>History (Min / Max)</th>
+                <th>Status</th>
+                <th>Model Input</th>
+              </tr>
+            </thead>
+            <tbody id="sensor-matrix-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: DATA UPLOAD MODE -->
+    <section id="tab-upload" class="tab-content">
+      <div class="card" style="margin-bottom: 18px;">
+        <h2 class="chart-title">Custom Engine Telemetry CSV Ingestion</h2>
+        <p class="chart-subtitle">Upload custom aircraft or test-bench sensor records to run inference against trained turbofan models</p>
+
+        <div class="upload-dropzone" id="upload-dropzone">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <h3>Drag & Drop Engine CSV or Click to Browse</h3>
+          <p>Required schema: <code>engine_id, cycle, op_1, op_2, op_3, s1, s2, ..., s21</code></p>
+          <input type="file" id="csv-file-input" accept=".csv" class="hidden-file-input" />
+          <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">
+            <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">Select Local CSV</button>
+          </div>
+        </div>
+
+        <div class="upload-options">
+          <label for="upload-dataset-select">Model Architecture to Use:</label>
+          <select id="upload-dataset-select" class="custom-select">
+            <option value="FD001" selected>FD001 Model (Window size = 30, Single Condition)</option>
+            <option value="FD002">FD002 Model (Window size = 60, Multi-Condition KMeans)</option>
+            <option value="FD003">FD003 Model (Window size = 30, Dual-Fault)</option>
+            <option value="FD004">FD004 Model (Window size = 60, Multi-Condition Dual-Fault)</option>
+          </select>
+          <button id="btn-submit-upload" class="btn btn-primary" disabled>Process & Predict CSV</button>
+        </div>
+      </div>
+
+      <!-- Upload Results: Same Design and Components as Fleet Overview -->
+      <div id="upload-results-wrap" class="hidden">
+        
+        <!-- Fleet Health Summary Cards (5 Interactive Stat Boxes) -->
+        <div class="fleet-stats-summary" id="upload-stats-summary" style="margin-bottom: 18px;">
+          <div class="fleet-stat-box total clickable-stat active-filter" id="upload-stat-card-total" data-filter="all" title="Click to view all ingested engines">
+            <span class="val" id="upload-total-count">--</span>
+            <span class="lbl">Total Ingested</span>
+            <span class="stat-click-hint">Show All &rarr;</span>
+          </div>
+          <div class="fleet-stat-box critical clickable-stat" id="upload-stat-card-critical" data-filter="critical" title="Click to filter to critical engines">
+            <span class="val" id="upload-critical-count">--</span>
+            <span class="lbl">Critical (Action Needed)</span>
+            <span class="stat-click-hint">Show Critical &rarr;</span>
+          </div>
+          <div class="fleet-stat-box warning clickable-stat" id="upload-stat-card-warning" data-filter="warning" title="Click to filter to warning engines">
+            <span class="val" id="upload-warning-count">--</span>
+            <span class="lbl">Warning (Advisory)</span>
+            <span class="stat-click-hint">Show Warnings &rarr;</span>
+          </div>
+          <div class="fleet-stat-box healthy clickable-stat" id="upload-stat-card-healthy" data-filter="healthy" title="Click to filter to healthy engines">
+            <span class="val" id="upload-healthy-count">--</span>
+            <span class="lbl">Healthy (Nominal)</span>
+            <span class="stat-click-hint">Show Healthy &rarr;</span>
+          </div>
+          <div class="fleet-stat-box high-uncert clickable-stat" id="upload-stat-card-uncert" data-filter="high_uncert" title="Click to filter to high uncertainty engines">
+            <span class="val" id="upload-uncertainty-count">--</span>
+            <span class="lbl">High Uncertainty (±1σ ≥ 8c)</span>
+            <span class="stat-click-hint">Show Uncertain &rarr;</span>
+          </div>
+        </div>
+
+        <!-- Ingested Operational Fleet Table -->
+        <div class="card fleet-queue-card">
+          <div class="card-header-flex" style="margin-bottom: 8px;">
+            <div>
+              <div class="queue-title-row">
+                <span class="card-tag">INGESTED FLEET TABLE</span>
+                <span class="queue-badge" id="upload-active-badge">Custom Ingested CSV</span>
+                <span class="queue-counter" id="upload-table-counter">Ingestion complete</span>
+              </div>
+              <h2 class="section-heading" style="margin-top: 6px; font-size: 16px;">
+                Ingested Engine Health & Urgency Ranking (Critical Engines First)
+              </h2>
+              <p class="chart-subtitle">
+                All uploaded engines evaluated via live PyTorch model inference and sorted by operational risk (lowest RUL first). Click any row to open full live telemetry and diagnostics.
+              </p>
+            </div>
+          </div>
+
+          <!-- Filter & Search Controls Row -->
+          <div class="table-filter-bar">
+            <div class="filter-group">
+              <div class="search-input-wrap">
+                <input type="text" id="upload-search-input" placeholder="Search Engine ID..." class="custom-input" style="width: 170px;" />
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Health:</span>
+                <div class="queue-filter-pills" id="upload-health-filter-pills">
+                  <button class="pill active" data-filter-type="health" data-filter-val="all">All</button>
+                  <button class="pill pill-crit" data-filter-type="health" data-filter-val="critical">Critical</button>
+                  <button class="pill pill-warn" data-filter-type="health" data-filter-val="warning">Warning</button>
+                  <button class="pill pill-ok" data-filter-type="health" data-filter-val="healthy">Healthy</button>
+                </div>
+              </div>
+
+              <div class="filter-group">
+                <span class="filter-label">Priority:</span>
+                <div class="queue-filter-pills" id="upload-prio-filter-pills">
+                  <button class="pill active" data-filter-type="priority" data-filter-val="all">All</button>
+                  <button class="pill pill-crit" data-filter-type="priority" data-filter-val="high">High</button>
+                  <button class="pill pill-warn" data-filter-type="priority" data-filter-val="medium">Med</button>
+                  <button class="pill pill-ok" data-filter-type="priority" data-filter-val="low">Low</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <div class="filter-item">
+                <label for="upload-alert-filter" class="filter-label">Alert:</label>
+                <select id="upload-alert-filter" class="custom-select" style="padding: 4px 8px; font-size: 11px;">
+                  <option value="all">All Alerts</option>
+                  <option value="LOW_RUL">Low RUL</option>
+                  <option value="HIGH_UNCERTAINTY">High Uncertainty</option>
+                  <option value="NOMINAL">Nominal / None</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label for="upload-sort-select" class="filter-label">Sort By:</label>
+                <select id="upload-sort-select" class="custom-select" style="padding: 4px 8px; font-size: 11px;">
+                  <option value="critical_first" selected>Priority / Risk → RUL Ascending (Most Critical First)</option>
+                  <option value="rul_asc">Predicted RUL (Lowest First)</option>
+                  <option value="rul_desc">Predicted RUL (Highest First)</option>
+                  <option value="engine_asc">Engine ID (Ascending)</option>
+                  <option value="uncertainty_desc">Uncertainty (Highest First)</option>
+                  <option value="cycle_desc">Current Cycle (Highest First)</option>
+                  <option value="health_status">Health Status (Critical → Warning → Healthy)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Full Ingested Table -->
+          <div class="fleet-queue-table-wrap" style="max-height: 520px;">
+            <table class="sensor-table queue-table" id="upload-fleet-table">
+              <thead>
+                <tr>
+                  <th style="width: 70px;">Rank</th>
+                  <th>Engine ID</th>
+                  <th>Dataset / Model</th>
+                  <th>Current Cycle</th>
+                  <th>Predicted RUL</th>
+                  <th>Uncertainty (±1σ)</th>
+                  <th>Health Status</th>
+                  <th>Risk / Priority</th>
+                  <th>Alert Status</th>
+                  <th>Recommended Action</th>
+                  <th style="text-align: right;">Inspect</th>
+                </tr>
+              </thead>
+              <tbody id="upload-fleet-tbody">
+                <tr>
+                  <td colspan="11" class="text-center" style="padding: 30px; color: var(--text-muted);">
+                    Select and process a CSV file to evaluate telemetry.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Controls -->
+          <div class="pagination-wrap">
+            <div id="upload-pagination-info">Showing 1–25 of -- engines</div>
+            <div class="pagination-controls">
+              <label for="upload-page-size-select" style="font-size: 11px; color: var(--text-dim); margin-right: 4px;">Rows per page:</label>
+              <select id="upload-page-size-select" class="custom-select" style="padding: 2px 6px; font-size: 11px; margin-right: 12px;">
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">All</option>
+              </select>
+              <button id="upload-btn-page-prev" class="page-btn">&larr; Previous</button>
+              <span id="upload-page-numbers-container" style="display: inline-flex; gap: 4px;"></span>
+              <button id="upload-btn-page-next" class="page-btn">Next &rarr;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: MODEL EVALUATION BENCHMARKS -->
+    <section id="tab-benchmarks" class="tab-content">
+      <div class="card">
+        <h2 class="chart-title">Model Performance & Offline Verification Benchmarks</h2>
+        <p class="chart-subtitle">
+          Evaluation metrics for the trained CNN-BiLSTM-3DAttn + MoE(4) + MC Dropout checkpoints across the NASA C-MAPSS benchmark suite.
+          <strong style="color: var(--amber);">Notice: RMSE and NASA scores represent model-level statistical performance and are strictly separate from individual engine RUL.</strong>
+        </p>
+
+        <div class="benchmark-grid" id="benchmark-grid">
+          <!-- Dynamically populated from /api/model-performance -->
+        </div>
+
+        <div class="methodology-card">
+          <h3>Architectural Pipeline Highlights</h3>
+          <div class="methodology-steps">
+            <div class="step-card">
+              <span class="step-num">01</span>
+              <h4>Condition Clustering</h4>
+              <p>KMeans unsupervised clustering (6 conditions for FD002 & FD004) enables condition-aware min-max normalization, removing operating regime variance.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">02</span>
+              <h4>Dual-Stream Feature Extractor</h4>
+              <p>Multi-scale Conv1D (kernels 3, 5, 7) + 2-layer BiLSTM (hidden 128) + 3D Attention fused with 6 handcrafted statistical features (mean, slope, std, % dev, cusum, late slope).</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">03</span>
+              <h4>4-Expert MoE Output Head</h4>
+              <p>Specialized expert sub-networks combined via learned soft-gating with entropy regularisation and variance penalty to prevent expert collapse.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-num">04</span>
+              <h4>MC Dropout Uncertainty</h4>
+              <p>50 stochastic forward passes at inference yield empirical predictive distributions, providing ±1σ uncertainty bounds and 90% confidence intervals.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>Turbofan Engine Health & RUL Monitoring Dashboard &bull; PyTorch Model Inference Pipeline &bull; NASA C-MAPSS Demonstration</p>
+  </footer>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

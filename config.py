@@ -34,8 +34,7 @@ TRAIN_CFG = {
     4: {'epochs': 450, 'lr': 1e-4, 'wd': 5e-3, 'dropout': 0.35, 'patience': 35},
 }
 
-# ─── Data path (configurable via env var) ────────────────────────────────────
-BASE = r'E:\turbofan-rul-prediction\data'
+BASE = os.environ.get('CMAPSS_DATA_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
 
 # ─── Random seed and device ──────────────────────────────────────────────────
 SEED = 42

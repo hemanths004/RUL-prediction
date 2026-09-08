@@ -56,6 +56,8 @@ def normalize_by_condition(df, sensors, op_settings, cond_scalers, km, op_scaler
     Uses the op_scaler fitted on TRAINING data to assign conditions consistently.
     """
     df = df.copy()
+    for s in sensors:
+        df[s] = df[s].astype(np.float64)
     if km is None:  # single condition
         df[sensors] = cond_scalers[0].transform(df[sensors])
         return df
