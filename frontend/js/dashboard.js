@@ -1179,55 +1179,58 @@ function initCharts() {
     }
   });
 
-  // 2. Sensor Trend Chart
-  const ctxSensor = document.getElementById("sensorTrendChart").getContext("2d");
-  sensorTrendChart = new Chart(ctxSensor, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Sensor Reading",
-          data: [],
-          borderColor: "#3b82f6",
-          backgroundColor: "rgba(59, 130, 246, 0.08)",
-          fill: true,
-          tension: 0.15,
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 6
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "#0f172a",
-          titleColor: "#f8fafc",
-          bodyColor: "#94a3b8",
-          borderColor: "#334155",
-          borderWidth: 1,
-          padding: 10
-        }
+  // 2. Sensor Trend Chart (if canvas present)
+  const sensorCanvas = document.getElementById("sensorTrendChart");
+  if (sensorCanvas) {
+    const ctxSensor = sensorCanvas.getContext("2d");
+    sensorTrendChart = new Chart(ctxSensor, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Sensor Reading",
+            data: [],
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59, 130, 246, 0.08)",
+            fill: true,
+            tension: 0.15,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 6
+          }
+        ]
       },
-      scales: {
-        x: {
-          grid: { color: "rgba(51, 65, 85, 0.4)" },
-          ticks: { color: "#64748b", font: { family: "'JetBrains Mono'" } },
-          title: { display: true, text: "Operating Cycle", color: "#94a3b8" }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#0f172a",
+            titleColor: "#f8fafc",
+            bodyColor: "#94a3b8",
+            borderColor: "#334155",
+            borderWidth: 1,
+            padding: 10
+          }
         },
-        y: {
-          grid: { color: "rgba(51, 65, 85, 0.4)" },
-          ticks: { color: "#64748b", font: { family: "'JetBrains Mono'" } },
-          title: { display: true, text: "Sensor Value", color: "#94a3b8" }
+        scales: {
+          x: {
+            grid: { color: "rgba(51, 65, 85, 0.4)" },
+            ticks: { color: "#64748b", font: { family: "'JetBrains Mono'" } },
+            title: { display: true, text: "Operating Cycle", color: "#94a3b8" }
+          },
+          y: {
+            grid: { color: "rgba(51, 65, 85, 0.4)" },
+            ticks: { color: "#64748b", font: { family: "'JetBrains Mono'" } },
+            title: { display: true, text: "Sensor Value", color: "#94a3b8" }
+          }
         }
       }
-    }
-  });
+    });
+  }
 }
 
 function renderRULTrendChart(historyData) {
@@ -1264,8 +1267,10 @@ function updateSensorTrendChart() {
   sensorTrendChart.update();
 
   const curVal = state.telemetryByCycle[state.currentCycle]?.[sId];
-  document.getElementById("sensor-desc-label").innerText = `${sId.toUpperCase()}: ${meta.name} (${meta.unit})`;
-  document.getElementById("sensor-current-val").innerText = `Current: ${curVal !== undefined ? curVal.toFixed(2) : '--'}`;
+  const descEl = document.getElementById("sensor-desc-label");
+  const valEl = document.getElementById("sensor-current-val");
+  if (descEl) descEl.innerText = `${sId.toUpperCase()}: ${meta.name} (${meta.unit})`;
+  if (valEl) valEl.innerText = `Current: ${curVal !== undefined ? curVal.toFixed(2) : '--'}`;
 }
 
 // ── Sensor Matrix Table ──────────────────────────────────────────────────────

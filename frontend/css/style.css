@@ -451,7 +451,7 @@ body {
 }
 
 .charts-grid {
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 1080px) {
