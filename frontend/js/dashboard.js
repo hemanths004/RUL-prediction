@@ -1332,6 +1332,7 @@ async function loadBenchmarks() {
     if (!container) return;
     container.innerHTML = "";
 
+    // Render Benchmark Cards
     data.metrics.forEach(m => {
       const card = document.createElement("div");
       card.className = "benchmark-card";
@@ -1341,8 +1342,16 @@ async function loadBenchmarks() {
           <span class="badge-tag selected">${m.status}</span>
         </div>
         <div class="bench-metric-row">
-          <span>Operating Regimes:</span>
-          <span class="metric-val">${m.conditions}</span>
+          <span>Flight Operating Conditions:</span>
+          <span class="metric-val" style="color: var(--cyan);">${m.conditions}</span>
+        </div>
+        <div class="bench-metric-row">
+          <span>Operational Profile:</span>
+          <span class="metric-val" style="font-size: 11px;">${m.conditions_summary || '0 kft | 0.00 M | 100% TRA'}</span>
+        </div>
+        <div class="bench-metric-row">
+          <span>Normalization Strategy:</span>
+          <span class="metric-val" style="color: #c084fc; font-size: 11px;">${m.normalization || 'Standard Scaler'}</span>
         </div>
         <div class="bench-metric-row">
           <span>Fault Mode:</span>
@@ -1371,6 +1380,25 @@ async function loadBenchmarks() {
       `;
       container.appendChild(card);
     });
+
+    // Render 6 Operating Conditions Matrix Table
+    const tbody = document.getElementById("op-regimes-tbody");
+    if (tbody && data.operating_regimes_matrix) {
+      tbody.innerHTML = "";
+      data.operating_regimes_matrix.forEach(reg => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><span class="op-tag-badge">Regime ${reg.regime_id}</span></td>
+          <td><strong style="color: #fff;">${reg.altitude}</strong></td>
+          <td><span style="font-family: var(--font-mono); color: var(--cyan);">${reg.mach}</span></td>
+          <td><span style="font-family: var(--font-mono); color: var(--amber);">${reg.throttle}</span></td>
+          <td>${reg.phase}</td>
+          <td><code style="color: #93c5fd;">${reg.datasets}</code></td>
+          <td><span class="op-tag-cluster">${reg.clustering}</span></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
   } catch (err) {
     console.error("Failed to load benchmarks:", err);
   }

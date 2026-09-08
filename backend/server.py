@@ -201,17 +201,76 @@ def get_fleet_overview(dataset: str, force: bool = False):
 @app.get("/api/model-performance")
 def get_model_performance():
     """
-    Return offline model evaluation benchmarks (RMSE, NASA Score, MAE).
-    Displayed strictly as model verification metrics, separate from live RUL.
+    Return offline model evaluation benchmarks (RMSE, NASA Score, MAE)
+    along with detailed NASA C-MAPSS 6 operating flight conditions.
     """
     return {
         "status": "success",
+        "operating_regimes_matrix": [
+            {
+                "regime_id": 1,
+                "altitude": "0 kft (Sea Level)",
+                "mach": "0.00 M",
+                "throttle": "100% TRA",
+                "phase": "Ground Idle & Sea Level Takeoff",
+                "datasets": "FD001, FD002, FD003, FD004",
+                "clustering": "Cluster 0 (Single/Multi-Regime Baseline)"
+            },
+            {
+                "regime_id": 2,
+                "altitude": "10 kft (10,000 ft)",
+                "mach": "0.25 M",
+                "throttle": "100% TRA",
+                "phase": "Low-Altitude Climb & Terminal Area",
+                "datasets": "FD002, FD004",
+                "clustering": "Cluster 1 (KMeans Op Scaler)"
+            },
+            {
+                "regime_id": 3,
+                "altitude": "20 kft (20,000 ft)",
+                "mach": "0.70 M",
+                "throttle": "100% TRA",
+                "phase": "Mid-Altitude Subsonic Cruise Transition",
+                "datasets": "FD002, FD004",
+                "clustering": "Cluster 2 (KMeans Op Scaler)"
+            },
+            {
+                "regime_id": 4,
+                "altitude": "25 kft (25,000 ft)",
+                "mach": "0.62 M",
+                "throttle": "60% TRA",
+                "phase": "Mid-Altitude Low-Power Descent / Holding",
+                "datasets": "FD002, FD004",
+                "clustering": "Cluster 3 (KMeans Op Scaler)"
+            },
+            {
+                "regime_id": 5,
+                "altitude": "35 kft (35,000 ft)",
+                "mach": "0.84 M",
+                "throttle": "100% TRA",
+                "phase": "High-Altitude Transonic Cruise",
+                "datasets": "FD002, FD004",
+                "clustering": "Cluster 4 (KMeans Op Scaler)"
+            },
+            {
+                "regime_id": 6,
+                "altitude": "42 kft (42,000 ft)",
+                "mach": "0.84 M",
+                "throttle": "100% TRA",
+                "phase": "Service Ceiling Maximum Altitude Cruise",
+                "datasets": "FD002, FD004",
+                "clustering": "Cluster 5 (KMeans Op Scaler)"
+            }
+        ],
         "metrics": [
             {
                 "dataset": "FD001",
                 "conditions": "Single (Sea Level)",
+                "conditions_count": 1,
+                "conditions_summary": "0 kft | 0.00 Mach | 100% TRA",
                 "faults": "HPC Degradation",
                 "window_size": 30,
+                "normalization": "Global MinMax Scaler",
                 "rmse": 13.94,
                 "score": 324.7,
                 "mae": 10.12,
@@ -222,8 +281,11 @@ def get_model_performance():
             {
                 "dataset": "FD002",
                 "conditions": "Six Operating Conditions",
+                "conditions_count": 6,
+                "conditions_summary": "0–42 kft | 0.00–0.84 Mach | 60–100% TRA",
                 "faults": "HPC Degradation",
                 "window_size": 60,
+                "normalization": "KMeans (k=6) Condition-Aware MinMax",
                 "rmse": 11.99,
                 "score": 680.4,
                 "mae": 9.45,
@@ -234,8 +296,11 @@ def get_model_performance():
             {
                 "dataset": "FD003",
                 "conditions": "Single (Sea Level)",
+                "conditions_count": 1,
+                "conditions_summary": "0 kft | 0.00 Mach | 100% TRA",
                 "faults": "HPC + Fan Degradation",
                 "window_size": 30,
+                "normalization": "Global MinMax Scaler",
                 "rmse": 12.20,
                 "score": 298.1,
                 "mae": 9.21,
@@ -246,8 +311,11 @@ def get_model_performance():
             {
                 "dataset": "FD004",
                 "conditions": "Six Operating Conditions",
+                "conditions_count": 6,
+                "conditions_summary": "0–42 kft | 0.00–0.84 Mach | 60–100% TRA",
                 "faults": "HPC + Fan Degradation",
                 "window_size": 60,
+                "normalization": "KMeans (k=6) Condition-Aware MinMax",
                 "rmse": 18.46,
                 "score": 1420.6,
                 "mae": 13.80,

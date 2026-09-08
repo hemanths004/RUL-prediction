@@ -723,6 +723,39 @@
           <!-- Dynamically populated from /api/model-performance -->
         </div>
 
+        <!-- 6 Operating Conditions Benchmark Matrix -->
+        <div class="op-regimes-card">
+          <div class="op-regimes-header">
+            <h3>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+              NASA C-MAPSS Operating Regimes & Flight Conditions Breakdown
+            </h3>
+            <span class="badge-tag selected">K-Means Condition Clustering Active</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+            In multi-regime datasets (FD002 & FD004), engines operate under 6 distinct flight conditions combinations (Altitude, Mach Speed, and Throttle Resolver Angle).
+            Unsupervised K-Means clustering normalizes each regime with independent <code style="color: var(--cyan);">MinMaxScaler</code> models to isolate real mechanical degradation from flight transitions.
+          </p>
+          <div class="op-regimes-table-wrapper">
+            <table class="op-regimes-table">
+              <thead>
+                <tr>
+                  <th>Regime #</th>
+                  <th>Altitude (Setting 1)</th>
+                  <th>Speed (Setting 2)</th>
+                  <th>Throttle (Setting 3)</th>
+                  <th>Flight Operational Phase</th>
+                  <th>Applicable Datasets</th>
+                  <th>Condition Clustering Strategy</th>
+                </tr>
+              </thead>
+              <tbody id="op-regimes-tbody">
+                <!-- Dynamically populated by dashboard.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="methodology-card">
           <h3>Architectural Pipeline Highlights</h3>
           <div class="methodology-steps">
