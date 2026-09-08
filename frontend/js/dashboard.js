@@ -187,6 +187,20 @@ function switchTab(targetId) {
 
   // Scroll to top
   window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Handle Tab-specific chart resizes and re-renders
+  if (targetId === "tab-monitor") {
+    setTimeout(async () => {
+      if (rulTrendChart) {
+        rulTrendChart.resize();
+      }
+      if (state.predictionHistory) {
+        renderRULTrendChart(state.predictionHistory);
+      } else {
+        await loadRULTrend();
+      }
+    }, 60);
+  }
 }
 
 // ── Event Listeners ──────────────────────────────────────────────────────────
@@ -1263,6 +1277,7 @@ function renderRULTrendChart(historyData) {
   rulTrendChart.data.datasets[1].data = gtRul;
   rulTrendChart.data.datasets[2].data = warnLine;
   rulTrendChart.data.datasets[3].data = critLine;
+  rulTrendChart.resize();
   rulTrendChart.update();
 }
 
