@@ -120,8 +120,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadDatasets();
   loadBenchmarks();
 
-  // Load Primary View: Fleet Overview with All Datasets
+  // Automatically default and run FD001 dataset
+  state.fleetDataset = "FD001";
+  state.dataset = "FD001";
+
+  const fleetDsSelect = document.getElementById("fleet-dataset-select");
+  if (fleetDsSelect) fleetDsSelect.value = "FD001";
+
+  const dsSelect = document.getElementById("dataset-select");
+  if (dsSelect) dsSelect.value = "FD001";
+
+  // Load Primary View: Fleet Overview with FD001
   await loadFleetOverview();
+
+  // Pre-load FD001 for Live Engine Monitor
+  await switchDataset("FD001");
 });
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
