@@ -60,6 +60,12 @@ class PredictRequest(BaseModel):
     mc_samples: Optional[int] = 50
 
 
+class ExplainRequest(BaseModel):
+    dataset: str  # "FD001" or "1"
+    engine_id: int
+    cycle: Optional[int] = None
+
+
 def parse_fd_id(dataset_str: str) -> int:
     ds = str(dataset_str).strip().upper()
     if ds.startswith("FD00"):
@@ -191,6 +197,46 @@ def get_prediction_history(dataset: str, engine_id: int, step: int = 2):
         return trend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Trend generation error: {str(e)}")
+
+
+@app.get("/api/engine-explain/{dataset}/{engine_id}")
+@app.get("/api/engine/{dataset}/{engine_id}/explain")
+def get_engine_explainability(dataset: str, engine_id: int, cycle: Optional[int] = None):
+    """
+    Generate SHAP-based AI explainability for the specified engine RUL prediction.
+    Explains the actual PyTorch model with sensor-level aggregated signed feature contributions.
+    """
+    fd_id = parse_fd_id(dataset)
+    engine = get_engine()
+    try:
+        res = engine.explain_engine_prediction(
+            fd_id=fd_id,
+            engine_id=engine_id,
+            cycle=cycle,
+            dataset_type='test'
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SHAP explanation error: {str(e)}")
+
+
+@app.post("/api/explain")
+def post_engine_explainability(req: ExplainRequest):
+    """
+    Generate SHAP-based AI explainability for the specified engine and cycle via POST request.
+    """
+    fd_id = parse_fd_id(req.dataset)
+    engine = get_engine()
+    try:
+        res = engine.explain_engine_prediction(
+            fd_id=fd_id,
+            engine_id=req.engine_id,
+            cycle=req.cycle,
+            dataset_type='test'
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SHAP explanation error: {str(e)}")
 
 
 @app.get("/api/fleet-overview/{dataset}")

@@ -59,6 +59,8 @@ class RULInferenceEngine:
         self._prediction_cache = {}
         # Fleet summary cache: (fd_id, dataset_type) -> fleet summary dict
         self._fleet_cache = {}
+        # SHAP Explainer instance
+        self.shap_explainer = None
 
     def _load_datasets(self):
         """Preload test data and RUL ground truth for fast access."""
@@ -619,6 +621,18 @@ class RULInferenceEngine:
         }
         self._fleet_cache[cache_key] = result
         return result
+
+    def get_shap_explainer(self):
+        """Lazy loader for SHAP explainer."""
+        if self.shap_explainer is None:
+            from backend.shap_explainer import TurbofanSHAPExplainer
+            self.shap_explainer = TurbofanSHAPExplainer(self)
+        return self.shap_explainer
+
+    def explain_engine_prediction(self, fd_id: int, engine_id: int, cycle: int = None, dataset_type: str = 'test'):
+        """Generate SHAP-based feature importance explanation for an engine prediction."""
+        explainer = self.get_shap_explainer()
+        return explainer.explain_engine(fd_id=fd_id, engine_id=engine_id, cycle=cycle, dataset_type=dataset_type)
 
 
 

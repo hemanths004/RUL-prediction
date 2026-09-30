@@ -1694,3 +1694,61 @@ body {
   color: #fff;
 }
 
+/* ─── AI Explainability & SHAP Components ──────────────────────────────────── */
+.explainability-card {
+  position: relative;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(19, 29, 51, 0.9) 100%);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+.shap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.shap-pill.positive {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.shap-pill.negative {
+  background: rgba(244, 63, 94, 0.12);
+  color: var(--rose);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+.shap-effect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.shap-effect-badge.higher {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.shap-effect-badge.lower {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

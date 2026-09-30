@@ -105,12 +105,14 @@ const state = {
   simTimer: null,
   simSpeed: 500,
   predictionCache: {},
+  shapExplanationCache: {},
   currentEngineRank: 1
 };
 
 // Chart instances
 let rulTrendChart = null;
 let sensorTrendChart = null;
+let shapBarChart = null;
 
 // ── Application Initialization ───────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -426,6 +428,14 @@ function setupEventListeners() {
 
   // Setup Ingested Fleet Table Event Listeners
   setupUploadEventListeners();
+
+  // AI Explainability Trigger Button
+  const explainBtn = document.getElementById("btn-explain-prediction");
+  if (explainBtn) {
+    explainBtn.addEventListener("click", () => {
+      loadSHAPExplanation(true);
+    });
+  }
 }
 
 function handleFileSelected() {
@@ -997,8 +1007,17 @@ async function fetchAndDisplayPrediction(cycle) {
     document.getElementById("detail-status-stat").innerText = "INSUFFICIENT DATA";
     document.getElementById("detail-rul-stat").innerText = "--";
     updateAlerts([]);
+    const shapError = document.getElementById("shap-error-state");
+    if (shapError) {
+      shapError.classList.remove("hidden");
+      document.getElementById("shap-error-msg").innerText =
+        `Insufficient history for AI explainability. Minimum ${state.windowSize} cycles required.`;
+    }
     return;
   }
+
+  const shapError = document.getElementById("shap-error-state");
+  if (shapError) shapError.classList.add("hidden");
 
   insufficientBanner.classList.add("hidden");
 
@@ -1074,6 +1093,22 @@ async function fetchAndDisplayPrediction(cycle) {
 
   // Alerts
   updateAlerts(pred.alerts);
+
+  // Connect with AI Explainability Section
+  const targetLabel = document.getElementById("shap-engine-cycle-label");
+  if (targetLabel) targetLabel.innerText = `${state.dataset} Engine ${state.engineId} @ Cycle ${cycle}`;
+  const predRulValEl = document.getElementById("shap-pred-rul-val");
+  if (predRulValEl) predRulValEl.innerText = `${roundedRul}`;
+  const targetRulText = document.getElementById("shap-target-rul-text");
+  if (targetRulText) targetRulText.innerText = `${roundedRul} cycles`;
+
+  const shapCacheKey = `${state.dataset}_${state.engineId}_${cycle}`;
+  if (state.shapExplanationCache[shapCacheKey]) {
+    renderSHAPResults(state.shapExplanationCache[shapCacheKey]);
+  } else if (!state.isPlaying) {
+    // Auto-load SHAP explanation when inspecting a static cycle
+    loadSHAPExplanation(false);
+  }
 
   // Synchronize state with raw fleet data if present
   const fleetEng = state.rawFleetData.find(e => e.dataset === state.dataset && e.engine_id === state.engineId);
@@ -1285,6 +1320,72 @@ function initCharts() {
       }
     });
   }
+
+  // 3. Horizontal SHAP Feature Importance Bar Chart
+  const shapCanvas = document.getElementById("shapBarChart");
+  if (shapCanvas) {
+    const ctxShap = shapCanvas.getContext("2d");
+    shapBarChart = new Chart(ctxShap, {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "SHAP Contribution (Cycles)",
+            data: [],
+            backgroundColor: [],
+            borderColor: [],
+            borderWidth: 1,
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#0f172a",
+            titleColor: "#f8fafc",
+            bodyColor: "#94a3b8",
+            borderColor: "#334155",
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: (items) => {
+                if (!items.length) return "";
+                const sensor = items[0].label;
+                const meta = SENSOR_META[sensor.toLowerCase()] || {};
+                return `${sensor}: ${meta.name || sensor}`;
+              },
+              label: (ctx) => {
+                const val = ctx.parsed.x;
+                const dir = val >= 0 ? "Increases RUL (Supporting)" : "Decreases RUL (Risk / Degradation)";
+                return `Impact: ${val >= 0 ? '+' : ''}${val.toFixed(2)} cycles (${dir})`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(51, 65, 85, 0.4)" },
+            ticks: {
+              color: "#94a3b8",
+              font: { family: "'JetBrains Mono'" },
+              callback: (v) => `${v >= 0 ? '+' : ''}${v}c`
+            },
+            title: { display: true, text: "SHAP Impact on Predicted RUL (Cycles)", color: "#94a3b8" }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: "#f8fafc", font: { family: "'JetBrains Mono'", weight: "bold" } }
+          }
+        }
+      }
+    });
+  }
 }
 
 function renderRULTrendChart(historyData) {
@@ -1379,6 +1480,190 @@ function renderSensorTable() {
     });
 
     tbody.appendChild(tr);
+  }
+}
+
+// ── AI Explainability & SHAP Visualizations ──────────────────────────────────
+
+async function loadSHAPExplanation(force = false) {
+  const dataset = state.dataset;
+  const engineId = state.engineId;
+  const cycle = state.currentCycle;
+
+  const loadingEl = document.getElementById("shap-loading-state");
+  const errorEl = document.getElementById("shap-error-state");
+  const contentEl = document.getElementById("shap-content-container");
+  const explainBtn = document.getElementById("btn-explain-prediction");
+
+  if (cycle < state.windowSize) {
+    if (errorEl) {
+      errorEl.classList.remove("hidden");
+      document.getElementById("shap-error-msg").innerText =
+        `Insufficient history for AI explainability. Minimum ${state.windowSize} cycles required.`;
+    }
+    return;
+  }
+
+  const cacheKey = `${dataset}_${engineId}_${cycle}`;
+  if (!force && state.shapExplanationCache[cacheKey]) {
+    renderSHAPResults(state.shapExplanationCache[cacheKey]);
+    return;
+  }
+
+  try {
+    if (loadingEl) loadingEl.classList.remove("hidden");
+    if (errorEl) errorEl.classList.add("hidden");
+    if (contentEl) contentEl.style.opacity = "0.4";
+    if (explainBtn) {
+      explainBtn.disabled = true;
+      explainBtn.innerHTML = `
+        <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px; margin-right: 6px; display: inline-block;"></span>
+        <span>Explaining...</span>
+      `;
+    }
+
+    const res = await fetch(`/api/engine-explain/${dataset}/${engineId}?cycle=${cycle}`);
+    const data = await res.json();
+
+    if (data.status === "success") {
+      state.shapExplanationCache[cacheKey] = data;
+      renderSHAPResults(data);
+      if (errorEl) errorEl.classList.add("hidden");
+    } else {
+      if (errorEl) {
+        errorEl.classList.remove("hidden");
+        document.getElementById("shap-error-msg").innerText =
+          data.message || "Explainability is temporarily unavailable. The RUL prediction is still available.";
+      }
+    }
+  } catch (err) {
+    console.error("SHAP explainability request error:", err);
+    if (errorEl) {
+      errorEl.classList.remove("hidden");
+      document.getElementById("shap-error-msg").innerText =
+        "Explainability is temporarily unavailable. The RUL prediction is still available.";
+    }
+  } finally {
+    if (loadingEl) loadingEl.classList.add("hidden");
+    if (contentEl) contentEl.style.opacity = "1";
+    if (explainBtn) {
+      explainBtn.disabled = false;
+      explainBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Explain Prediction</span>
+      `;
+    }
+  }
+}
+
+function renderSHAPResults(data) {
+  if (!data || data.status !== "success") return;
+
+  // 1. Context Strip Readouts
+  const targetLabel = document.getElementById("shap-engine-cycle-label");
+  if (targetLabel) targetLabel.innerText = `${data.dataset} Engine ${data.engine_id} @ Cycle ${data.current_cycle}`;
+
+  const baseValEl = document.getElementById("shap-base-val");
+  if (baseValEl) baseValEl.innerText = `${Math.round(data.base_value)}`;
+
+  const predRulValEl = document.getElementById("shap-pred-rul-val");
+  if (predRulValEl) predRulValEl.innerText = `${Math.round(data.rul_prediction)}`;
+
+  const targetRulText = document.getElementById("shap-target-rul-text");
+  if (targetRulText) targetRulText.innerText = `${Math.round(data.rul_prediction)} cycles`;
+
+  // 2. Summary Narrative
+  const narrativeEl = document.getElementById("shap-narrative-text");
+  if (narrativeEl && data.summary_narrative) {
+    narrativeEl.innerText = data.summary_narrative;
+  }
+
+  // 3. Top Risk & Supporting Factor Pills
+  const negContainer = document.getElementById("shap-top-negative-pills");
+  if (negContainer) {
+    negContainer.innerHTML = "";
+    if (data.top_negative && data.top_negative.length > 0) {
+      data.top_negative.slice(0, 4).forEach(s => {
+        const pill = document.createElement("span");
+        pill.className = "shap-pill negative";
+        pill.innerHTML = `<strong>${s.sensor}</strong> (${s.shap_value.toFixed(2)}c)`;
+        pill.title = `${s.name}: ${s.shap_value.toFixed(2)} cycles reduction in RUL`;
+        negContainer.appendChild(pill);
+      });
+    } else {
+      negContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-dim);">No significant degradation drivers detected</span>`;
+    }
+  }
+
+  const posContainer = document.getElementById("shap-top-positive-pills");
+  if (posContainer) {
+    posContainer.innerHTML = "";
+    if (data.top_positive && data.top_positive.length > 0) {
+      data.top_positive.slice(0, 4).forEach(s => {
+        const pill = document.createElement("span");
+        pill.className = "shap-pill positive";
+        pill.innerHTML = `<strong>${s.sensor}</strong> (+${s.shap_value.toFixed(2)}c)`;
+        pill.title = `${s.name}: +${s.shap_value.toFixed(2)} cycles addition to RUL`;
+        posContainer.appendChild(pill);
+      });
+    } else {
+      posContainer.innerHTML = `<span style="font-size: 11px; color: var(--text-dim);">No positive margin contributors</span>`;
+    }
+  }
+
+  // 4. Horizontal SHAP Feature Importance Bar Chart
+  if (shapBarChart && data.top_contributing) {
+    // Reverse for top item on top in horizontal bar chart
+    const topContrib = [...data.top_contributing].reverse();
+    const labels = topContrib.map(s => s.sensor);
+    const values = topContrib.map(s => s.shap_value);
+    const bgColors = values.map(v => v >= 0 ? "rgba(16, 185, 129, 0.75)" : "rgba(244, 63, 94, 0.75)");
+    const borderColors = values.map(v => v >= 0 ? "#10b981" : "#f43f5e");
+
+    shapBarChart.data.labels = labels;
+    shapBarChart.data.datasets[0].data = values;
+    shapBarChart.data.datasets[0].backgroundColor = bgColors;
+    shapBarChart.data.datasets[0].borderColor = borderColors;
+    shapBarChart.resize();
+    shapBarChart.update();
+  }
+
+  // 5. Detailed Sensor Table
+  const tbody = document.getElementById("shap-sensor-tbody");
+  const countBadge = document.getElementById("shap-sensor-count-badge");
+  if (tbody && data.all_sensors) {
+    tbody.innerHTML = "";
+    if (countBadge) countBadge.innerText = `${data.all_sensors.length} Sensors Evaluated`;
+
+    data.all_sensors.forEach(s => {
+      const isPos = s.shap_value >= 0;
+      const sign = isPos ? "+" : "";
+      const effectBadge = isPos
+        ? `<span class="shap-effect-badge higher">▲ Higher RUL</span>`
+        : `<span class="shap-effect-badge lower">▼ Lower RUL</span>`;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>
+          <strong style="color: #fff;">${s.sensor}</strong>
+          <div style="font-size: 11px; color: var(--text-muted);">${s.name}</div>
+        </td>
+        <td style="font-family: var(--font-mono); color: #fff;">
+          ${s.current_value} <span style="font-size: 10px; color: var(--text-dim);">${s.unit}</span>
+        </td>
+        <td style="font-family: var(--font-mono); font-weight: 700; color: ${isPos ? 'var(--emerald)' : 'var(--rose)'};">
+          ${sign}${s.shap_value.toFixed(3)} c
+        </td>
+        <td>
+          ${effectBadge}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 }
 
